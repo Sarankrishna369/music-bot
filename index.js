@@ -8,12 +8,20 @@ const port = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running with LavaLink!'));
 app.listen(port, () => console.log(`Web server listening on port ${port}`));
 
-const Nodes = [{
-  name: 'Free Node',
-  url: 'lavalink.oops.wtf:443',
-  auth: 'www.freelavalink.xyz',
-  secure: true
-}];
+const Nodes = [
+  {
+    name: 'Lava.Link Node',
+    url: 'lava.link:80',
+    auth: 'youshallnotpass',
+    secure: false
+  },
+  {
+    name: 'Darren Node',
+    url: 'lavalink.darrennathanael.com:443',
+    auth: 'youshallnotpass',
+    secure: true
+  }
+];
 
 const client = new Client({
   intents: [
