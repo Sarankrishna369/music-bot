@@ -108,12 +108,12 @@ client.on('messageCreate', async (message) => {
           message.channel.send("⏹️ Queue finished. Leaving voice channel!");
         } else {
           const nextTrack = queue.songs.shift();
-          await player.playTrack({ track: { encoded: nextTrack.encoded } });
+          await player.playTrack({ track: nextTrack.encoded });
           message.channel.send(`🎵 Now playing: **${nextTrack.info.title}**`);
         }
       });
 
-      await player.playTrack({ track: { encoded: track.encoded } });
+      await player.playTrack({ track: track.encoded });
       message.reply(`🎵 Now playing: **${track.info.title}**`);
     } else {
       queue.songs.push(track);
