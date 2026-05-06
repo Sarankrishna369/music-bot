@@ -37,7 +37,10 @@ client.once('ready', () => {
 });
 
 client.on('messageCreate', async (message) => {
-  if (message.author.bot || !message.guild) return;
+  if (message.author.bot) return; // Don't log other bots to avoid spam
+  console.log(`[DEBUG] Received a message from ${message.author.tag}: "${message.content}"`);
+  
+  if (!message.guild) return;
 
   const args = message.content.trim().split(/\s+/);
   const command = args[0].toLowerCase();
@@ -50,56 +53,61 @@ client.on('messageCreate', async (message) => {
     const node = shoukaku.options.nodeResolver(shoukaku.nodes);
     if (!node) return message.reply("❌ No Lavalink node is currently available. Please try again in a minute!");
 
-    const result = await node.rest.resolve(query.startsWith('http') ? query : `ytsearch:${query}`);
-    if (!result || result.loadType === 'empty' || result.loadType === 'NO_MATCHES' || result.loadType === 'LOAD_FAILED') {
-      return message.reply("❌ No results found!");
-    }
+    try {
+      const result = await node.rest.resolve(query.startsWith('http') ? query : `ytsearch:${query}`);
+      if (!result || result.loadType === 'empty' || result.loadType === 'NO_MATCHES' || result.loadType === 'LOAD_FAILED') {
+        return message.reply("❌ No results found!");
+      }
 
-    let track;
-    if (result.loadType === 'PLAYLIST_LOADED' || result.loadType === 'playlist') {
-      track = result.data.tracks ? result.data.tracks[0] : result.data[0];
-    } else if (result.loadType === 'SEARCH_RESULT' || result.loadType === 'search') {
-      track = result.data[0];
-    } else {
-      track = result.data;
-    }
+      let track;
+      if (result.loadType === 'PLAYLIST_LOADED' || result.loadType === 'playlist') {
+        track = result.data.tracks ? result.data.tracks[0] : result.data[0];
+      } else if (result.loadType === 'SEARCH_RESULT' || result.loadType === 'search') {
+        track = result.data[0];
+      } else {
+        track = result.data;
+      }
 
-    if (!track || !track.encoded) return message.reply("❌ Error loading that specific track.");
+      if (!track || !track.encoded) return message.reply("❌ Error loading that specific track.");
 
-    let queue = queues.get(message.guild.id);
+      let queue = queues.get(message.guild.id);
 
-    if (!queue) {
-      // Join the voice channel
-      const player = await shoukaku.joinVoiceChannel({
-        guildId: message.guild.id,
-        channelId: message.member.voice.channelId,
-        shardId: 0
-      });
+      if (!queue) {
+        // Join the voice channel
+        const player = await shoukaku.joinVoiceChannel({
+          guildId: message.guild.id,
+          channelId: message.member.voice.channelId,
+          shardId: message.guild.shardId || 0
+        });
 
-      queue = {
-        player,
-        songs: [],
-        volume: 100
-      };
-      queues.set(message.guild.id, queue);
+        queue = {
+          player,
+          songs: [],
+          volume: 100
+        };
+        queues.set(message.guild.id, queue);
 
-      player.on('end', async () => {
-        if (queue.songs.length === 0) {
-          shoukaku.leaveVoiceChannel(message.guild.id);
-          queues.delete(message.guild.id);
-          message.channel.send("⏹️ Queue finished. Leaving voice channel!");
-        } else {
-          const nextTrack = queue.songs.shift();
-          await player.playTrack({ track: { encoded: nextTrack.encoded } });
-          message.channel.send(`🎵 Now playing: **${nextTrack.info.title}**`);
-        }
-      });
+        player.on('end', async () => {
+          if (queue.songs.length === 0) {
+            shoukaku.leaveVoiceChannel(message.guild.id);
+            queues.delete(message.guild.id);
+            message.channel.send("⏹️ Queue finished. Leaving voice channel!");
+          } else {
+            const nextTrack = queue.songs.shift();
+            await player.playTrack({ track: { encoded: nextTrack.encoded } });
+            message.channel.send(`🎵 Now playing: **${nextTrack.info.title}**`);
+          }
+        });
 
-      await player.playTrack({ track: { encoded: track.encoded } });
-      message.reply(`🎵 Now playing: **${track.info.title}**`);
-    } else {
-      queue.songs.push(track);
-      message.reply(`✅ Added to queue: **${track.info.title}**`);
+        await player.playTrack({ track: { encoded: track.encoded } });
+        message.reply(`🎵 Now playing: **${track.info.title}**`);
+      } else {
+        queue.songs.push(track);
+        message.reply(`✅ Added to queue: **${track.info.title}**`);
+      }
+    } catch (error) {
+      console.error('Play command error:', error);
+      message.reply(`❌ An error occurred: ${error.message}`);
     }
   }
 
