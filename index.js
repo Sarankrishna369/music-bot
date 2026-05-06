@@ -10,15 +10,21 @@ app.listen(port, () => console.log(`Web server listening on port ${port}`));
 
 const Nodes = [
   {
-    name: 'Lava.Link Node',
-    url: 'lava.link:80',
+    name: 'Jirayu',
+    url: 'lavalink.jirayu.net:443',
     auth: 'youshallnotpass',
-    secure: false
+    secure: true
   },
   {
-    name: 'Darren Node',
-    url: 'lavalink.darrennathanael.com:443',
-    auth: 'youshallnotpass',
+    name: 'Serenetia',
+    url: 'lavalinkv4.serenetia.com:443',
+    auth: 'https://seretia.link/discord',
+    secure: true
+  },
+  {
+    name: 'Trinium',
+    url: 'lavalink-v4.triniumhost.com:443',
+    auth: 'free',
     secure: true
   }
 ];
