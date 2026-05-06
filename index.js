@@ -10,22 +10,28 @@ app.listen(port, () => console.log(`Web server listening on port ${port}`));
 
 const Nodes = [
   {
-    name: 'Jirayu',
-    url: 'lavalink.jirayu.net:443',
-    auth: 'youshallnotpass',
-    secure: true
-  },
-  {
-    name: 'Serenetia',
-    url: 'lavalinkv4.serenetia.com:443',
-    auth: 'https://seretia.link/discord',
-    secure: true
+    name: 'G3V',
+    url: 'lava.g3v.co.uk:9008',
+    auth: 'lavalinklol',
+    secure: false
   },
   {
     name: 'Trinium',
-    url: 'lavalink-v4.triniumhost.com:443',
+    url: 'lavalink.triniumhost.com:4333',
     auth: 'free',
-    secure: true
+    secure: false
+  },
+  {
+    name: 'Nexcloud',
+    url: 'n3.nexcloud.in:2026',
+    auth: 'nexcloud',
+    secure: false
+  },
+  {
+    name: 'VexaNode',
+    url: 'omega.vexanode.cloud:2031',
+    auth: 'https://discord.vexanode.cloud',
+    secure: false
   }
 ];
 
