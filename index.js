@@ -101,19 +101,19 @@ client.on('messageCreate', async (message) => {
       };
       queues.set(message.guild.id, queue);
 
-      player.on('end', () => {
+      player.on('end', async () => {
         if (queue.songs.length === 0) {
           shoukaku.leaveVoiceChannel(message.guild.id);
           queues.delete(message.guild.id);
           message.channel.send("⏹️ Queue finished. Leaving voice channel!");
         } else {
           const nextTrack = queue.songs.shift();
-          player.playTrack({ track: nextTrack.encoded });
+          await player.playTrack({ track: { encoded: nextTrack.encoded } });
           message.channel.send(`🎵 Now playing: **${nextTrack.info.title}**`);
         }
       });
 
-      player.playTrack({ track: track.encoded });
+      await player.playTrack({ track: { encoded: track.encoded } });
       message.reply(`🎵 Now playing: **${track.info.title}**`);
     } else {
       queue.songs.push(track);
