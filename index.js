@@ -37,7 +37,7 @@ const Nodes = [
     name: 'OptikLinkNode',
     url: process.env.LAVALINK_HOST,
     auth: process.env.LAVALINK_PASSWORD,
-    secure: false
+    secure: true
   }
 ];
 
