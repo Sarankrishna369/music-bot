@@ -1,5 +1,5 @@
+require("dotenv").config();
 
-require('dotenv').config();
 const {
   Client,
   GatewayIntentBits,
@@ -8,15 +8,27 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ActivityType
-} = require('discord.js');
+} = require("discord.js");
 
-const { Connectors, Shoukaku } = require('shoukaku');
-const express = require('express');
+const { Connectors, Shoukaku } = require("shoukaku");
+const express = require("express");
 
+// =========================
+// WEB SERVER (Render)
+// =========================
 const app = express();
-app.get('/', (req, res) => res.send('Premium Music Bot Running'));
-app.listen(process.env.PORT || 3000);
 
+app.get("/", (req, res) => {
+  res.send("Music Bot Online");
+});
+
+app.listen(process.env.PORT || 10000, () => {
+  console.log(`Web server listening on port ${process.env.PORT || 10000}`);
+});
+
+// =========================
+// DISCORD CLIENT
+// =========================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,44 +38,95 @@ const client = new Client({
   ]
 });
 
-const Nodes = [{
-  name: 'PremiumNode',
-  url: process.env.LAVALINK_HOST,
-  auth: process.env.LAVALINK_PASSWORD,
-  secure: true
-}];
+// =========================
+// LAVALINK
+// =========================
+const Nodes = [
+  {
+    name: "PremiumNode",
+    url: process.env.LAVALINK_HOST,
+    auth: process.env.LAVALINK_PASSWORD,
+    secure: process.env.LAVALINK_SECURE === "true"
+  }
+];
 
 const shoukaku = new Shoukaku(
   new Connectors.DiscordJS(client),
   Nodes
 );
 
+// Prevent crash on Lavalink errors
+shoukaku.on("error", (name, error) => {
+  console.error(`[LAVALINK ERROR] ${name}`, error);
+});
+
+shoukaku.on("ready", (name) => {
+  console.log(`[LAVALINK] Node connected: ${name}`);
+});
+
+shoukaku.on("close", (name, code, reason) => {
+  console.log(
+    `[LAVALINK CLOSED] ${name} | Code: ${code} | Reason: ${reason}`
+  );
+});
+
+// =========================
+// QUEUES
+// =========================
 const queues = new Map();
 
-client.once('ready', () => {
+// =========================
+// READY
+// =========================
+client.once("ready", () => {
   console.log(`${client.user.tag} online`);
-  client.user.setActivity('/play music', {
+
+  client.user.setActivity("/play music", {
     type: ActivityType.Listening
   });
 });
 
-client.on('messageCreate', async (message) => {
+// =========================
+// PLAY COMMAND
+// =========================
+client.on("messageCreate", async (message) => {
   if (!message.guild || message.author.bot) return;
 
-  const args = message.content.split(' ');
-  const cmd = args.shift().toLowerCase();
+  const args = message.content.trim().split(/\s+/);
+  const cmd = args.shift()?.toLowerCase();
 
-  if (cmd === '!play') {
-    const query = args.join(' ');
-    if (!query) return message.reply('❌ Give a song name');
+  // ======================
+  // PLAY
+  // ======================
+  if (cmd === "!play") {
+    const query = args.join(" ");
+
+    if (!query)
+      return message.reply("❌ Please provide a song name.");
 
     const vc = message.member.voice.channel;
-    if (!vc) return message.reply('❌ Join VC first');
 
-    const node = shoukaku.options.nodeResolver(shoukaku.nodes);
+    if (!vc)
+      return message.reply("❌ Join a voice channel first.");
 
     try {
+      const node = [...shoukaku.nodes.values()][0];
+
+      if (!node)
+        return message.reply(
+          "❌ Lavalink node unavailable. Try again later."
+        );
+
       const result = await node.rest.resolve(`ytsearch:${query}`);
+
+      if (
+        !result ||
+        !result.data ||
+        result.data.length === 0
+      ) {
+        return message.reply("❌ No results found.");
+      }
+
       const track = result.data[0];
 
       let queue = queues.get(message.guild.id);
@@ -83,107 +146,158 @@ client.on('messageCreate', async (message) => {
 
         queues.set(message.guild.id, queue);
 
-        player.on('end', async () => {
+        player.on("end", async () => {
           if (queue.tracks.length === 0) return;
 
           const next = queue.tracks.shift();
 
-          await player.playTrack({
-            track: { encoded: next.encoded }
-          });
+          try {
+            await player.playTrack({
+              track: {
+                encoded: next.encoded
+              }
+            });
+          } catch (err) {
+            console.error(err);
+          }
         });
 
         await player.playTrack({
-          track: { encoded: track.encoded }
+          track: {
+            encoded: track.encoded
+          }
         });
-
       } else {
         queue.tracks.push(track);
       }
 
       const embed = new EmbedBuilder()
-        .setTitle('🎵 Now Playing')
+        .setColor("Purple")
+        .setTitle("🎵 Now Playing")
         .setDescription(`**${track.info.title}**`)
-        .setThumbnail(track.info.artworkUrl || null)
-        .setColor('Purple')
         .addFields(
-          { name: 'Author', value: track.info.author || 'Unknown', inline: true },
-          { name: 'Duration', value: `${Math.floor(track.info.length / 60000)} min`, inline: true }
+          {
+            name: "Author",
+            value: track.info.author || "Unknown",
+            inline: true
+          },
+          {
+            name: "Length",
+            value:
+              `${Math.floor(track.info.length / 60000)} min`,
+            inline: true
+          }
         );
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('skip')
-          .setLabel('Skip')
+          .setCustomId("skip")
+          .setLabel("Skip")
           .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
-          .setCustomId('stop')
-          .setLabel('Stop')
+          .setCustomId("stop")
+          .setLabel("Stop")
           .setStyle(ButtonStyle.Danger)
       );
 
-      message.channel.send({
+      await message.channel.send({
         embeds: [embed],
         components: [row]
       });
-
-    } catch (e) {
-      console.error(e);
-      message.reply('❌ Error while playing');
+    } catch (err) {
+      console.error(err);
+      return message.reply(
+        "❌ Failed to play song. Lavalink may be offline."
+      );
     }
   }
 
-  if (cmd === '!queue') {
+  // ======================
+  // QUEUE
+  // ======================
+  if (cmd === "!queue") {
     const queue = queues.get(message.guild.id);
 
-    if (!queue || queue.tracks.length === 0)
-      return message.reply('Queue empty');
+    if (!queue || queue.tracks.length === 0) {
+      return message.reply("📭 Queue is empty.");
+    }
 
     const songs = queue.tracks
       .map((t, i) => `${i + 1}. ${t.info.title}`)
-      .join('\n');
+      .join("\n");
 
     const embed = new EmbedBuilder()
-      .setTitle('📜 Queue')
-      .setDescription(songs)
-      .setColor('Blue');
+      .setColor("Blue")
+      .setTitle("📜 Queue")
+      .setDescription(songs);
 
-    message.reply({ embeds: [embed] });
+    return message.reply({
+      embeds: [embed]
+    });
   }
 
-  if (cmd === '!247') {
-    return message.reply('✅ 24/7 mode enabled (demo)');
+  // ======================
+  // DEMO COMMANDS
+  // ======================
+  if (cmd === "!247") {
+    return message.reply("✅ 24/7 mode enabled (demo)");
   }
 
-  if (cmd === '!autoplay') {
-    return message.reply('✅ Autoplay enabled (demo)');
+  if (cmd === "!autoplay") {
+    return message.reply("✅ Autoplay enabled (demo)");
   }
 
-  if (cmd === '!dj') {
-    return message.reply('🎧 DJ mode enabled');
+  if (cmd === "!dj") {
+    return message.reply("🎧 DJ mode enabled");
   }
 });
 
-client.on('interactionCreate', async interaction => {
+// =========================
+// BUTTONS
+// =========================
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
 
   const queue = queues.get(interaction.guild.id);
-  if (!queue) return interaction.reply({
-    content: 'Nothing playing',
-    ephemeral: true
-  });
 
-  if (interaction.customId === 'skip') {
-    queue.player.stopTrack();
-    return interaction.reply('⏭️ Skipped');
+  if (!queue) {
+    return interaction.reply({
+      content: "❌ Nothing is playing.",
+      ephemeral: true
+    });
   }
 
-  if (interaction.customId === 'stop') {
-    shoukaku.leaveVoiceChannel(interaction.guild.id);
-    queues.delete(interaction.guild.id);
-    return interaction.reply('🛑 Stopped');
+  if (interaction.customId === "skip") {
+    try {
+      queue.player.stopTrack();
+
+      return interaction.reply("⏭️ Song skipped.");
+    } catch {
+      return interaction.reply({
+        content: "❌ Unable to skip.",
+        ephemeral: true
+      });
+    }
+  }
+
+  if (interaction.customId === "stop") {
+    try {
+      shoukaku.leaveVoiceChannel(interaction.guild.id);
+
+      queues.delete(interaction.guild.id);
+
+      return interaction.reply("🛑 Playback stopped.");
+    } catch {
+      return interaction.reply({
+        content: "❌ Unable to stop.",
+        ephemeral: true
+      });
+    }
   }
 });
 
+// =========================
+// LOGIN
+// =========================
 client.login(process.env.TOKEN);
