@@ -117,7 +117,7 @@ client.on("messageCreate", async (message) => {
           "❌ Lavalink node unavailable. Try again later."
         );
 
-      const result = await node.rest.resolve(`scsearch:${query}`);
+      const result = await node.rest.resolve(`ytmsearch:${query}`);
 
       if (
         !result ||
